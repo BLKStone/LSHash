@@ -11,6 +11,12 @@ try:
 except ImportError:
     redis = None
 
+try:
+    import pymongo
+except ImportError:
+    pymongo =None
+
+
 __all__ = ['storage']
 
 
@@ -23,6 +29,9 @@ def storage(storage_config, index):
     elif 'redis' in storage_config:
         storage_config['redis']['db'] = index
         return RedisStorage(storage_config['redis'])
+    elif 'mongodb' in storage_config:
+        storage_config['mongodb']['table_index'] = index
+        return MongoStorage(storage_config['mongodb'])
     else:
         raise ValueError("Only in-memory dictionary and Redis are supported.")
 
@@ -80,6 +89,79 @@ class InMemoryStorage(BaseStorage):
 
     def get_list(self, key):
         return self.storage.get(key, [])
+
+
+class MongoStorage(BaseStorage):
+    def __init__(self, config):
+        # config['db_uri'] = "mongodb://127.0.0.1:27017"
+        # config['db_name'] = "lshdb"
+        self.client = pymongo.MongoClient(config['db_uri'])
+        self.index = config['table_index']
+        self.collection_name = config['collection_prefix'] + str(self.index)
+        self.db = self.client[config['db_name']]
+        self.collection = self.db.get_collection(self.collection_name)
+
+    def keys(self):
+        key_list = set()
+        for document in self.collection.find():
+            key_list.append(document[u'hash_code'])
+        return list(key_list)
+
+    def set_val(self, key, val):
+        document = {}
+        value_list = []
+        value_list.append(val)
+        document['hash_code'] = key
+        document['value'] = value_list
+        status_code = self.collection.insert_one(document)
+        return status_code.raw_result
+
+    def get_val(self, key):
+        query = {}
+        query[u'hash_code'] = key
+        document = self.collection.find_one(query)
+        return document[u'value']
+
+    def append_val(self, key, val):
+        query = {}
+        query[u'hash_code'] = key
+        document = self.collection.find_one(query)
+        if document is None:
+            document = {}
+            value_list = []
+            value_list.append(val)
+            document['hash_code'] = key
+            document['value'] = value_list
+            status_code = self.collection.insert_one(document)
+        else:
+            document[u'value'].append(val)
+            status_code = self.collection.update_one(
+                {
+                    "hash_code": key
+                },
+                {
+                    "$set": {"value": document[u'value']},
+                    # "$currentDate": {"lastModified": True}
+                }
+            )
+        # status_code.raw_result
+        return status_code
+
+    def get_list(self, key):
+        query = {}
+        query[u'hash_code'] = key
+        document = self.collection.find_one(query)
+
+        result_list = []
+        for ele in document[u'value']:
+            # ele_tuple = tuple(ele)
+            ele_tuple = (tuple(ele[0]),ele[1])
+            result_list.append(ele_tuple)
+
+        return tuple(result_list)
+
+    def clean(self):
+        return self.collection.drop()
 
 
 class RedisStorage(BaseStorage):

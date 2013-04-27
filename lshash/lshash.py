@@ -267,6 +267,13 @@ class LSHash(object):
 
         return candidates[:num_results] if num_results else candidates
 
+    def clean(self):
+        for table in self.hash_tables:
+            try:
+                table.clean()
+            except Exception:
+                pass
+
     ### distance functions
 
     @staticmethod
