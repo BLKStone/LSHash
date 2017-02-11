@@ -2,6 +2,9 @@
 LSHash
 ======
 
+A fast Python implementation of locality sensitive hashing with persistance
+support.
+
 :Version: 0.0.41dev
 
 Changes
@@ -9,6 +12,7 @@ Changes
 Support MongoDB Storage
 
 .. code-block:: python
+
     mongo_config = {}
     mongo_config['db_uri'] = "mongodb://127.0.0.1:27017"
     mongo_config['db_name'] = "lshdb"
@@ -26,11 +30,6 @@ Support MongoDB Storage
     print '---------- Query Result ----------'
     print lsh.query([1, 2, 3, 4, 5, 6, 7, 7])
     lsh.clean()
-
-
-
-A fast Python implementation of locality sensitive hashing with persistance
-support.
 
 Highlights
 ==========
